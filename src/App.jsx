@@ -12,7 +12,9 @@ import BreakoutAlert from './components/BreakoutAlert';
 import AddStockModal from './components/AddStockModal';
 import BacktestPanel from './components/BacktestPanel';
 
-const WS_URL = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`;
+const WS_URL = import.meta.env.DEV
+  ? 'ws://localhost:3001'
+  : `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`;
 
 export default function App() {
   const { isConnected, stocks, breakoutAlerts, clearAlerts, dismissAlertAtIndex } = useWebSocket(WS_URL);
