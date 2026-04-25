@@ -3032,6 +3032,42 @@
       "addedAt": "2026-04-23T18:53:58.430Z",
       "exchange": "NSE",
       "lastPriceUpdate": "2026-04-24T21:34:39.141Z"
+    },
+    {
+      "id": "moenncck3cyz0",
+      "symbol": "MILTON-SM",
+      "name": "MILTON INDUSTRIES LIMITED",
+      "listingDate": "2026-04-25",
+      "day1High": 47.8,
+      "day1Low": 47.8,
+      "day1Open": 47.8,
+      "day1Close": 47.8,
+      "currentPrice": 47.8,
+      "breakoutTriggered": false,
+      "breakoutTimestamp": null,
+      "breakoutPrice": null,
+      "isMonitoring": true,
+      "addedAt": "2026-04-25T18:10:32.900Z",
+      "exchange": "NSE",
+      "lastPriceUpdate": "2026-04-25T18:11:02.929Z"
+    },
+    {
+      "id": "moenng3qslu9d",
+      "symbol": "KDL-SM",
+      "name": "KORE DIGITAL LIMITED",
+      "listingDate": "2026-04-25",
+      "day1High": 163.60000610351562,
+      "day1Low": 151.6999969482422,
+      "day1Open": 163.60000610351562,
+      "day1Close": 153.25,
+      "currentPrice": 153.25,
+      "breakoutTriggered": false,
+      "breakoutTimestamp": null,
+      "breakoutPrice": null,
+      "isMonitoring": true,
+      "addedAt": "2026-04-25T18:10:37.766Z",
+      "exchange": "NSE",
+      "lastPriceUpdate": "2026-04-25T18:11:02.954Z"
     }
   ],
   "breakouts": [
@@ -3630,5 +3666,5 @@
       "percentAbove": "1.66"
     }
   ],
-  "lastUpdated": "2026-04-24T21:34:39.141Z"
+  "lastUpdated": "2026-04-25T18:11:02.954Z"
 }
