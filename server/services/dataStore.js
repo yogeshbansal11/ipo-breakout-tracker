@@ -108,6 +108,7 @@ export function addStock(stock) {
     breakoutTriggered: false,
     breakoutTimestamp: null,
     breakoutPrice: null,
+    breakoutAttempts: 0,
     isMonitoring: true,
     addedAt: new Date().toISOString(),
     exchange: stock.exchange || 'NSE',
@@ -126,16 +127,32 @@ export function updateStockPrice(symbol, price) {
   const stock = data.stocks.find(s => s.symbol.toUpperCase() === symbol.toUpperCase());
   if (!stock) return null;
   
+  // A breakout that failed re-arms once price falls back through the Day 1 Low —
+  // the level a trade on it would have been stopped out at. Backtesting showed a
+  // stock that reclaims its Day 1 High after failing is still a profitable entry
+  // (176 trades vs 124, total +62R vs +46R), so the alert has to be able to fire
+  // again rather than latching on the first attempt forever.
+  const stoppedOut = stock.breakoutTriggered && stock.day1Low && price <= stock.day1Low;
+  if (stoppedOut) {
+    stock.breakoutTriggered = false;
+    stock.breakoutTimestamp = null;
+    stock.breakoutPrice = null;
+  }
+
   // Breakout is a property of the stock's current state, not of the price ticking.
   // Evaluating it before the unchanged-price shortcut matters because a stock can
   // already sit above its Day 1 High the first time it is quoted, or have its Day 1
   // High corrected downward afterwards. In both cases the price may never change
   // again — with the check below the shortcut, the breakout would never fire.
   // Requires at least 0.5% above Day 1 High to ignore tick-level noise.
-  const isBreakout = !stock.breakoutTriggered && stock.day1High && price > stock.day1High * 1.005;
+  const attempts = stock.breakoutAttempts ?? 0;
+  const isBreakout = !stock.breakoutTriggered
+    && attempts < MAX_BREAKOUT_ATTEMPTS
+    && stock.day1High
+    && price > stock.day1High * 1.005;
 
   // Skip write if nothing would change
-  if (stock.currentPrice === price && !isBreakout) {
+  if (stock.currentPrice === price && !isBreakout && !stoppedOut) {
     return { stock, breakout: false };
   }
 
@@ -144,6 +161,7 @@ export function updateStockPrice(symbol, price) {
 
   if (isBreakout) {
     stock.breakoutTriggered = true;
+    stock.breakoutAttempts = attempts + 1;
     stock.breakoutTimestamp = new Date().toISOString();
     stock.breakoutPrice = price;
     
@@ -160,7 +178,8 @@ export function updateStockPrice(symbol, price) {
       day1High: stock.day1High,
       breakoutPrice: price,
       breakoutTimestamp: stock.breakoutTimestamp,
-      percentAbove: (((price - stock.day1High) / stock.day1High) * 100).toFixed(2)
+      percentAbove: (((price - stock.day1High) / stock.day1High) * 100).toFixed(2),
+      attempt: stock.breakoutAttempts
     });
     
     writeData(data);
@@ -216,6 +235,7 @@ export function resetBreakoutForStock(symbol) {
     stock.breakoutTriggered = false;
     stock.breakoutTimestamp = null;
     stock.breakoutPrice = null;
+    stock.breakoutAttempts = 0;
     writeData(data);
   }
   return stock;
@@ -228,7 +248,23 @@ export function resetBreakoutForStock(symbol) {
  * whose price is at or near its listing-day high — i.e. a live breakout candidate.
  */
 export const MAX_LISTING_AGE_DAYS = 45;
-export const NEAR_BAND_PCT = -5; // keep from 5% below the Day 1 High upwards
+export const NEAR_BAND_PCT = -5; // dashboard shows from 5% below the Day 1 High upwards
+
+/** Distance from the Day 1 High as a percentage, or null without a price. */
+export function distanceFromDay1HighPct(stock) {
+  if (!stock.currentPrice || !stock.day1High) return null;
+  return ((stock.currentPrice - stock.day1High) / stock.day1High) * 100;
+}
+
+/**
+ * Whether a stock is close enough to its Day 1 High to be worth showing.
+ * A display filter only — stocks outside the band stay tracked so they can be
+ * picked up again if they climb back.
+ */
+export function isNearBreakout(stock) {
+  const d = distanceFromDay1HighPct(stock);
+  return d === null || d >= NEAR_BAND_PCT;
+}
 
 /**
  * Minimum Day 1 high-to-low range, as a % of the Day 1 Low.
@@ -242,6 +278,13 @@ export const NEAR_BAND_PCT = -5; // keep from 5% below the Day 1 High upwards
  */
 export const MIN_DAY1_RANGE_PCT = 10;
 
+/**
+ * How many times one stock may signal a breakout. Backtesting found the second
+ * attempt still profitable (38% win, +0.14R) and the third too thin to judge
+ * (10 trades), so three is the cap — past that it is noise, not a setup.
+ */
+export const MAX_BREAKOUT_ATTEMPTS = 3;
+
 /** Day 1 high-to-low range as a percentage, or null when Day 1 data is missing. */
 export function day1RangePct(stock) {
   if (stock.day1High == null || !stock.day1Low) return null;
@@ -252,12 +295,15 @@ export function day1RangePct(stock) {
  * Removes stocks that are no longer breakout candidates:
  *  - Listed more than MAX_LISTING_AGE_DAYS ago  -> the listing-day high has gone stale
  *  - Day 1 range below MIN_DAY1_RANGE_PCT       -> flat first day, the level means nothing
- *  - Price further than NEAR_BAND_PCT below the Day 1 High -> not approaching a breakout
  *
- * Stocks with no price yet are kept; they were just added and have not been quoted.
- * Note the first two rules are safe to delete on because neither the listing date
- * nor the Day 1 range can ever change. The price rule can reverse, so a stock
- * removed by it is gone even if it later recovers.
+ * Both are safe to delete on: neither a listing date nor a Day 1 range can ever
+ * change, so a stock removed by them could never have come back.
+ *
+ * Price distance is deliberately NOT a deletion rule. It reverses — a stock can
+ * fall 6% below the Day 1 High and reclaim it a week later, which backtesting
+ * showed is a profitable second entry. Deleting on price threw those away, and
+ * because a deleted symbol is no longer "new" to discovery it could never be
+ * re-added. Use isNearBreakout() to hide them from the dashboard instead.
  */
 export function pruneWatchlist() {
   const data = readData();
@@ -278,15 +324,6 @@ export function pruneWatchlist() {
     const rangePct = day1RangePct(stock);
     if (rangePct !== null && rangePct < MIN_DAY1_RANGE_PCT) {
       pruned.push({ symbol: stock.symbol, reason: `Day 1 range only ${rangePct.toFixed(1)}% — below the ${MIN_DAY1_RANGE_PCT}% minimum` });
-      return false;
-    }
-
-    const distancePct = (stock.currentPrice && stock.day1High)
-      ? (stock.currentPrice - stock.day1High) / stock.day1High * 100
-      : null;
-
-    if (distancePct !== null && distancePct < NEAR_BAND_PCT) {
-      pruned.push({ symbol: stock.symbol, reason: `${distancePct.toFixed(1)}% below Day 1 High — outside ${Math.abs(NEAR_BAND_PCT)}% band` });
       return false;
     }
 
@@ -332,6 +369,61 @@ export function repairListingData(symbol, listingDate, candle, yahooSymbol = nul
 
   if (changed) writeData(data);
   return { stock, changed };
+}
+
+/**
+ * Replaces the watchlist with one fetched from the authoritative source, used
+ * by deployments that mirror rather than own the data.
+ *
+ * Two fields resist the overwrite, because this process observes them sooner
+ * than the source does:
+ *
+ *  - currentPrice, when the local reading is the newer of the two. This process
+ *    quotes every 10s; the source only every 10 minutes, so taking its price
+ *    unconditionally would visibly rewind the dashboard on every sync.
+ *  - breakoutTriggered once true. A breakout only ever flips on, so letting a
+ *    not-yet-updated source clear it would flicker the badge off and back on
+ *    within seconds of a live cross.
+ */
+export function mergeRemoteWatchlist(remote) {
+  const data = readData();
+  const local = new Map(data.stocks.map(s => [s.symbol.toUpperCase(), s]));
+
+  data.stocks = (remote.stocks || []).map(incoming => {
+    const mine = local.get(incoming.symbol.toUpperCase());
+    if (!mine) return incoming;
+
+    const merged = { ...incoming };
+
+    const localIsNewer =
+      mine.lastPriceUpdate &&
+      (!incoming.lastPriceUpdate || mine.lastPriceUpdate > incoming.lastPriceUpdate);
+
+    if (localIsNewer) {
+      merged.currentPrice = mine.currentPrice;
+      merged.lastPriceUpdate = mine.lastPriceUpdate;
+    }
+
+    if (mine.breakoutTriggered && !incoming.breakoutTriggered) {
+      merged.breakoutTriggered = true;
+      merged.breakoutTimestamp = mine.breakoutTimestamp;
+      merged.breakoutPrice = mine.breakoutPrice;
+    }
+
+    return merged;
+  });
+
+  // Keep any locally observed breakout record the source has not caught up on.
+  const tracked = new Set(data.stocks.filter(s => s.breakoutTriggered).map(s => s.symbol.toUpperCase()));
+  const incomingBreakouts = remote.breakouts || [];
+  const seen = new Set(incomingBreakouts.map(b => b.symbol.toUpperCase()));
+  const localOnly = (data.breakouts || []).filter(
+    b => tracked.has(b.symbol.toUpperCase()) && !seen.has(b.symbol.toUpperCase())
+  );
+  data.breakouts = [...incomingBreakouts, ...localOnly];
+
+  writeData(data);
+  return data.stocks.length;
 }
 
 // ========== STATS ==========

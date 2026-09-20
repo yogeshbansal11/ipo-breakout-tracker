@@ -12,6 +12,7 @@ import cron from 'node-cron';
 import { runAutoIpoDiscovery, validateExistingStocks, repairListingDates } from './services/ipoDiscovery.js';
 import { sendBreakoutEmail } from './services/emailService.js';
 import { isMarketOpen } from './services/marketHours.js';
+import { isMirror, syncFromSource } from './services/mirror.js';
 import { config } from 'dotenv';
 config();
 
@@ -224,6 +225,22 @@ server.listen(PORT, () => {
 ╚══════════════════════════════════════════════════╝
   `);
   startMonitoring();
+
+  // A mirror deployment neither discovers nor prunes: the scheduled GitHub job
+  // is the only writer of watchlist membership, and anything written here is
+  // lost on the next restart anyway. It just re-reads that result and keeps
+  // quoting live prices for the dashboard.
+  if (isMirror) {
+    console.log('🪞 Mirror mode — watchlist comes from GitHub; discovery and pruning are not run here.');
+    syncFromSource().then(() => {
+      broadcast({ type: 'STOCKS_UPDATE', stocks: getAllStocks(), timestamp: new Date().toISOString() });
+    });
+    setInterval(async () => {
+      await syncFromSource();
+      broadcast({ type: 'STOCKS_UPDATE', stocks: getAllStocks(), timestamp: new Date().toISOString() });
+    }, 10 * 60 * 1000);
+    return;
+  }
 
   // Run auto discovery on startup (wait 5s for successful start)
   setTimeout(() => { runAutoIpoDiscovery(); }, 5000);

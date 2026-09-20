@@ -43,6 +43,16 @@ jobs:
           ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
         run: node scripts/run-job.mjs check ${{ inputs.force && '--force' || '' }}
 
+      # The dashboard runs on a free host that sleeps after 15 minutes idle, and
+      # a cold start costs the visitor ~50s. This job already wakes up every 10
+      # minutes through the session, so one request keeps it warm for anyone
+      # opening the link. Deliberately not run outside market hours: free
+      # instance hours are shared across the account, and staying up around the
+      # clock would consume nearly the whole monthly allowance on its own.
+      - name: Keep the dashboard awake
+        continue-on-error: true
+        run: curl -sS -m 90 -o /dev/null -w "dashboard HTTP %{http_code} in %{time_total}s" https://ipo-breakout-tracker.onrender.com/health
+
       - name: Save updated prices
         run: |
           if [ -z "$(git status --porcelain server/data)" ]; then
