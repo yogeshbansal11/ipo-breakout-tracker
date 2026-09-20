@@ -1,4 +1,5 @@
 import YahooFinance from 'yahoo-finance2';
+import { isMarketOpen } from './marketHours.js';
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
 /**
@@ -252,4 +253,29 @@ export async function getFirstTradeInfo(symbol) {
   }
 
   return best;
+}
+
+/**
+ * The price to show for a symbol, correct on both sides of the closing bell.
+ *
+ * Yahoo's quote endpoint answers outside market hours with a figure that does
+ * not match the session that actually happened — for thin Indian listings it
+ * drifted several rupees from the real close in both directions. Taking it at
+ * face value overwrote genuine closing prices with noise, and because a
+ * breakout is evaluated on whatever price arrives, a junk reading could trigger
+ * a breakout and its email off a trade that never occurred.
+ *
+ * While the exchange is open the live quote is the right answer. Once it shuts,
+ * the last daily candle is, because that is the session's settled close.
+ */
+export async function getSessionPrice(symbol) {
+  if (isMarketOpen()) {
+    const quote = await getLiveQuote(symbol);
+    return quote?.price != null ? { price: quote.price, source: 'live', name: quote.name } : null;
+  }
+
+  const candles = await getHistoricalData(symbol, '2020-01-01');
+  const last = candles.filter(c => c.close != null).pop();
+  if (!last) return null;
+  return { price: Math.round(last.close * 100) / 100, source: `close ${last.date}`, name: null };
 }

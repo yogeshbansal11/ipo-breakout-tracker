@@ -11,7 +11,7 @@ import {
   getStats,
   pruneWatchlist
 } from '../services/dataStore.js';
-import { getLiveQuote, getHistoricalData, getListingDayCandle, searchStock, getFirstTradeInfo } from '../services/yahooFinance.js';
+import { getLiveQuote, getHistoricalData, getListingDayCandle, getSessionPrice, searchStock, getFirstTradeInfo } from '../services/yahooFinance.js';
 import { validateExistingStocks } from '../services/ipoDiscovery.js';
 
 const router = Router();
@@ -105,9 +105,12 @@ router.post('/stocks', async (req, res) => {
     // Seed the price straight away. The monitor only polls during market hours,
     // so without this a stock added after close shows a blank price until the
     // next session — and its breakout would not be evaluated until then either.
-    if (result.success && liveQuote?.price) {
-      const updated = updateStockPrice(result.stock.symbol, liveQuote.price);
-      if (updated) result.stock = updated.stock;
+    if (result.success) {
+      const seed = await getSessionPrice(symbol);
+      if (seed) {
+        const updated = updateStockPrice(result.stock.symbol, seed.price);
+        if (updated) result.stock = updated.stock;
+      }
     }
 
     res.json(result);

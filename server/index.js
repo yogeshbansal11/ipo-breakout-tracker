@@ -210,7 +210,10 @@ async function monitorPrices(force = false) {
 // Start monitoring every 10 seconds 
 function startMonitoring() {
   console.log('📊 Starting price monitoring (every 10 seconds)...');
-  monitorPrices(true); // Initial run — take one reading even if the market is shut
+  // No forced reading: quotes pulled outside market hours do not match the
+  // session that happened, and writing one would replace a real close with
+  // noise on every restart. The stored price already holds the last real one.
+  monitorPrices();
   monitoringInterval = setInterval(monitorPrices, 10000);
 }
 
