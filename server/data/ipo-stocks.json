@@ -30,7 +30,7 @@
       "day1Open": 330,
       "day1Close": 345.15,
       "day1Volume": 8510549,
-      "currentPrice": 341.35,
+      "currentPrice": 345,
       "breakoutTriggered": false,
       "breakoutTimestamp": null,
       "breakoutPrice": null,
@@ -38,7 +38,7 @@
       "addedAt": "2026-09-20T14:23:37.058Z",
       "exchange": "NSE",
       "yahooSymbol": "MPIMANIPAL.NS",
-      "lastPriceUpdate": "2026-09-20T14:23:37.103Z"
+      "lastPriceUpdate": "2026-09-20T17:24:50.526Z"
     }
   ],
   "breakouts": [
@@ -52,5 +52,5 @@
       "percentAbove": "1.01"
     }
   ],
-  "lastUpdated": "2026-09-20T16:30:37.128Z"
+  "lastUpdated": "2026-09-20T17:24:50.526Z"
 }
