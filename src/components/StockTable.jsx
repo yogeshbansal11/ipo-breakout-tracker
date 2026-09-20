@@ -32,6 +32,20 @@ function formatPercent(val) {
 /** Minimum Day 1 high-to-low range for a setup worth trading (see server dataStore). */
 const MIN_DAY1_RANGE_PCT = 10;
 
+/** Dashboard shows stocks from this far below the Day 1 High upwards. */
+const NEAR_BAND_PCT = -5;
+
+function distancePct(stock) {
+  if (!stock.currentPrice || !stock.day1High) return null;
+  return ((stock.currentPrice - stock.day1High) / stock.day1High) * 100;
+}
+
+/** Display filter only — out-of-band stocks stay tracked so they can come back. */
+function isNearBreakout(stock) {
+  const d = distancePct(stock);
+  return d === null || d >= NEAR_BAND_PCT;
+}
+
 function day1RangePct(stock) {
   if (stock.day1High == null || !stock.day1Low) return null;
   return ((stock.day1High - stock.day1Low) / stock.day1Low) * 100;
@@ -120,6 +134,7 @@ function ProgressToBreakout({ current, day1High }) {
 
 export default memo(function StockTable({ stocks, onRefresh }) {
   const [pruning, setPruning] = useState(false);
+  const [showAll, setShowAll] = useState(false);
 
   const handleToggle = async (symbol) => {
     try {
@@ -156,7 +171,7 @@ export default memo(function StockTable({ stocks, onRefresh }) {
   };
 
   const handlePrune = async () => {
-    if (!confirm('Remove stocks listed >45 days ago, with a Day 1 range under 10%, or trading >5% below their Day 1 High?')) return;
+    if (!confirm('Remove stocks listed >45 days ago or with a Day 1 range under 10%?')) return;
     setPruning(true);
     try {
       const result = await api.pruneWatchlist();
@@ -177,8 +192,14 @@ export default memo(function StockTable({ stocks, onRefresh }) {
     setPruning(false);
   };
 
+  // Out-of-band stocks are hidden, never dropped: price reverses, and a stock that
+  // reclaims its Day 1 High after falling away is a valid second entry.
+  const inBand = stocks.filter(isNearBreakout);
+  const outOfBand = stocks.filter(s => !isNearBreakout(s));
+  const visible = showAll ? stocks : inBand;
+
   // Sort by setup score descending (best opportunities first)
-  const sorted = [...stocks].sort((a, b) => computeSetup(b).score - computeSetup(a).score);
+  const sorted = [...visible].sort((a, b) => computeSetup(b).score - computeSetup(a).score);
 
   if (sorted.length === 0) {
     return (
@@ -199,13 +220,23 @@ export default memo(function StockTable({ stocks, onRefresh }) {
       {/* Prune toolbar */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
         <span className="text-xs text-dark-300">
-          {sorted.length} stock{sorted.length !== 1 ? 's' : ''} · listed ≤ 45d, Day 1 range ≥ 10%, within 5% of Day 1 High
+          {sorted.length} stock{sorted.length !== 1 ? 's' : ''} · listed ≤ 45d, Day 1 range ≥ 10%
+          {!showAll && ' , within 5% of Day 1 High'}
+          {outOfBand.length > 0 && (
+            <button
+              onClick={() => setShowAll(v => !v)}
+              className="ml-2 underline underline-offset-2 hover:text-dark-100"
+              title="Stocks that fell out of range are still tracked — they can reclaim the Day 1 High and set up again"
+            >
+              {showAll ? 'hide' : `show`} {outOfBand.length} out of range
+            </button>
+          )}
         </span>
         <button
           onClick={handlePrune}
           disabled={pruning}
           className="btn-ghost flex items-center gap-1.5 text-xs"
-          title="Remove stocks listed more than 45 days ago, stocks whose Day 1 range is under 10% (historically unprofitable), and stocks trading more than 5% below their Day 1 High"
+          title="Remove stocks listed more than 45 days ago, and stocks whose Day 1 range is under 10%. Stocks that merely fell below the Day 1 High are hidden, not removed — they can set up again."
         >
           <Scissors className="w-3 h-3" />
           {pruning ? 'Pruning…' : 'Prune Watchlist'}
@@ -333,6 +364,14 @@ export default memo(function StockTable({ stocks, onRefresh }) {
                       ) : null}
                       {setup.label}
                     </span>
+                    {stock.breakoutAttempts > 1 && (
+                      <span
+                        className="ml-1 text-[10px] font-mono text-dark-300"
+                        title={`Attempt ${stock.breakoutAttempts} — this stock failed earlier and set up again`}
+                      >
+                        #{stock.breakoutAttempts}
+                      </span>
+                    )}
                   </td>
 
                   {/* Progress */}
