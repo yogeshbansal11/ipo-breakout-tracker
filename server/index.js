@@ -26,9 +26,17 @@ app.use(express.json());
 // API Routes
 app.use('/api', apiRoutes);
 
-// Health check
+// Health check. Reports which build is live and whether this process owns its
+// data or mirrors it — a hosted mirror is otherwise indistinguishable from a
+// stale deploy from the outside, which makes a wrong watchlist hard to explain.
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({
+    status: 'ok',
+    mode: isMirror ? 'mirror' : 'primary',
+    commit: (process.env.RENDER_GIT_COMMIT || 'local').slice(0, 7),
+    marketOpen: isMarketOpen(),
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // An unmatched /api/* request must not fall through to the SPA handler below:
