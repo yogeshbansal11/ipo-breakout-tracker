@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { Toaster } from 'react-hot-toast';
 import toast from 'react-hot-toast';
-import { Plus, LayoutDashboard, Zap, History, Download, Loader2 } from 'lucide-react';
+import { Plus, LayoutDashboard, Zap, History, Loader2, ShieldCheck } from 'lucide-react';
 import { useWebSocket } from './hooks/useWebSocket';
 import { api } from './services/api';
 import Header from './components/Header';
@@ -17,32 +17,45 @@ const WS_URL = import.meta.env.DEV
   : `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`;
 
 export default function App() {
-  const { isConnected, stocks, breakoutAlerts, clearAlerts, dismissAlertAtIndex } = useWebSocket(WS_URL);
+  const { isConnected, stocks, breakoutAlerts, dismissAlertAtIndex } = useWebSocket(WS_URL);
   const [showAddModal, setShowAddModal] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [loadingRecent, setLoadingRecent] = useState(false);
 
   const refreshStocks = useCallback(async () => {
-    try { await api.getStocks(); } catch {}
+    // The WebSocket pushes the authoritative list; this just nudges a refresh,
+    // so a failed poll is not worth surfacing to the user.
+    try { await api.getStocks(); } catch { /* ignored */ }
   }, []);
 
   const dismissAlert = useCallback((index) => {
     dismissAlertAtIndex(index);
   }, [dismissAlertAtIndex]);
 
-  const handleLoadRecent = async () => {
-    setLoadingRecent(true);
+  const [validating, setValidating] = useState(false);
+
+  const handleValidate = async () => {
+    setValidating(true);
+    toast('Validating all stocks against Yahoo Finance history… this takes ~1 min', {
+      icon: '🔍',
+      duration: 8000,
+      style: { background: '#1a1a2e', color: '#e0e0f0', border: '1px solid rgba(255,255,255,0.1)' },
+    });
     try {
-      const result = await api.loadRecentIpos();
-      const r = result.results;
-      toast.success(
-        `Added: ${r.added.length} | Skipped: ${r.skipped.length} | Failed: ${r.failed.length}`,
-        { duration: 5000, style: { background: '#1a1a2e', color: '#e0e0f0', border: '1px solid rgba(0,255,136,0.2)' } }
-      );
+      const result = await api.validateStocks();
+      if (result.count === 0) {
+        toast.success('All stocks verified — no false positives found.', {
+          style: { background: '#1a1a2e', color: '#e0e0f0', border: '1px solid rgba(0,255,136,0.2)' },
+        });
+      } else {
+        toast.success(
+          `Removed ${result.count} old stock${result.count > 1 ? 's' : ''} that weren't genuine IPOs`,
+          { duration: 6000, style: { background: '#1a1a2e', color: '#e0e0f0', border: '1px solid rgba(0,255,136,0.2)' } }
+        );
+      }
     } catch (err) {
       toast.error(err.message);
     }
-    setLoadingRecent(false);
+    setValidating(false);
   };
 
   const tabs = [
@@ -79,19 +92,20 @@ export default function App() {
           </div>
           <div className="flex gap-2">
             <button
-              onClick={handleLoadRecent}
-              disabled={loadingRecent}
+              onClick={handleValidate}
+              disabled={validating}
               className="btn-ghost flex items-center gap-2"
+              title="Check every tracked stock against Yahoo Finance — removes any old/established companies that were incorrectly added as IPOs"
             >
-              {loadingRecent ? (
+              {validating ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  Loading IPOs...
+                  Validating…
                 </>
               ) : (
                 <>
-                  <Download className="w-3.5 h-3.5" />
-                  Load Recent IPOs
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  Validate IPOs
                 </>
               )}
             </button>
@@ -113,7 +127,7 @@ export default function App() {
           <BacktestPanel />
         )}
 
-        <footer className="text-center py-6 text-xs text-[var(--color-dark-400)]">
+        <footer className="text-center py-6 text-xs text-dark-400">
           IPO Breakout Tracker • Real-time monitoring for NSE/BSE • Data via Yahoo Finance
         </footer>
       </main>

@@ -6,10 +6,10 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import apiRoutes from './routes/api.js';
-import { getAllStocks, updateStockPrice } from './services/dataStore.js';
-import { getLiveQuote, getBulkQuotes } from './services/yahooFinance.js';
+import { getAllStocks, updateStockPrice, pruneWatchlist } from './services/dataStore.js';
+import { getBulkQuotes } from './services/yahooFinance.js';
 import cron from 'node-cron';
-import { runAutoIpoDiscovery } from './services/ipoDiscovery.js';
+import { runAutoIpoDiscovery, validateExistingStocks, repairListingDates } from './services/ipoDiscovery.js';
 import { sendBreakoutEmail } from './services/emailService.js';
 import { config } from 'dotenv';
 config();
@@ -27,6 +27,13 @@ app.use('/api', apiRoutes);
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// An unmatched /api/* request must not fall through to the SPA handler below:
+// it would answer index.html with status 200, so fetch() sees a successful
+// response and then dies on "Unexpected token '<'" while parsing HTML as JSON.
+app.use('/api', (req, res) => {
+  res.status(404).json({ success: false, error: `No such API route: ${req.method} /api${req.url}` });
 });
 
 // Serve built frontend
@@ -47,13 +54,20 @@ wss.on('connection', (ws) => {
   clients.add(ws);
   console.log(`Client connected. Total: ${clients.size}`);
   
-  // Send initial data
-  const stocks = getAllStocks();
-  ws.send(JSON.stringify({ 
-    type: 'INIT', 
-    stocks,
-    timestamp: new Date().toISOString() 
-  }));
+  // Send initial data. readData throws on a corrupt watchlist rather than
+  // silently reporting it as empty, and an exception raised inside a 'connection'
+  // listener is uncaught — it would take the whole server down on a browser
+  // refresh. Report it to this client and leave the process running.
+  try {
+    ws.send(JSON.stringify({
+      type: 'INIT',
+      stocks: getAllStocks(),
+      timestamp: new Date().toISOString()
+    }));
+  } catch (error) {
+    console.error('Could not send initial stocks:', error.message);
+    ws.send(JSON.stringify({ type: 'ERROR', error: error.message }));
+  }
 
   ws.on('close', () => {
     clients.delete(ws);
@@ -77,16 +91,59 @@ function broadcast(message) {
 }
 
 // ===== PRICE MONITORING ENGINE =====
+
+/**
+ * NSE/BSE trade Mon-Fri, 09:15-15:30 IST. Outside that window prices cannot
+ * move, so polling every 10s burns roughly 8,600 pointless Yahoo requests a day
+ * and risks being rate-limited exactly when the market reopens. Exchange
+ * holidays are not modelled — the weekday and time window removes the bulk of
+ * the waste, and a holiday just costs a day of no-op quotes.
+ *
+ * Read in Asia/Kolkata explicitly: the deploy target runs on UTC.
+ */
+function isMarketOpen(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Kolkata',
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(now);
+
+  const get = type => parts.find(p => p.type === type)?.value;
+  const weekday = get('weekday');
+  if (weekday === 'Sat' || weekday === 'Sun') return false;
+
+  // hour12:false can render midnight as "24" depending on the ICU build.
+  const minutes = (Number(get('hour')) % 24) * 60 + Number(get('minute'));
+  return minutes >= 9 * 60 + 15 && minutes <= 15 * 60 + 30;
+}
+
 let monitoringInterval = null;
 let isMonitoring = false;
+let loggedMarketClosed = false;
 
-async function monitorPrices() {
+async function monitorPrices(force = false) {
   if (isMonitoring) return;
+
+  if (!force && !isMarketOpen()) {
+    if (!loggedMarketClosed) {
+      console.log('😴 Market closed (NSE trades Mon-Fri 09:15-15:30 IST) — pausing price polling.');
+      loggedMarketClosed = true;
+    }
+    return;
+  }
+  loggedMarketClosed = false;
+
   isMonitoring = true;
 
   try {
     const stocks = getAllStocks();
-    const activeStocks = stocks.filter(s => s.isMonitoring && !s.breakoutTriggered);
+    // Keep quoting stocks that have already broken out. Excluding them froze the
+    // price of exactly the stocks worth watching most — the ones a trade is open
+    // on — so the dashboard showed a stale number for the rest of the session.
+    // updateStockPrice already refuses to fire a second breakout for the same stock.
+    const activeStocks = stocks.filter(s => s.isMonitoring);
     
     if (activeStocks.length === 0) {
       isMonitoring = false;
@@ -170,7 +227,7 @@ async function monitorPrices() {
 // Start monitoring every 10 seconds 
 function startMonitoring() {
   console.log('📊 Starting price monitoring (every 10 seconds)...');
-  monitorPrices(); // Initial run
+  monitorPrices(true); // Initial run — take one reading even if the market is shut
   monitoringInterval = setInterval(monitorPrices, 10000);
 }
 
@@ -197,10 +254,47 @@ server.listen(PORT, () => {
   // Run auto discovery on startup (wait 5s for successful start)
   setTimeout(() => { runAutoIpoDiscovery(); }, 5000);
 
-  // Schedule auto discovery to run Daily at 9:00 AM India Time
+  // Clean up the watchlist once at startup. Order matters: drop false positives
+  // first, then correct listing dates, then prune — pruning keys off the listing
+  // date, so it has to see the repaired value.
+  setTimeout(async () => {
+    try {
+      await validateExistingStocks();
+      await repairListingDates();
+
+      const pruned = pruneWatchlist();
+      if (pruned.length > 0) {
+        console.log(`🗑️  Pruned ${pruned.length} stock(s) from watchlist:`);
+        pruned.forEach(p => console.log(`   - ${p.symbol}: ${p.reason}`));
+      }
+
+      broadcast({ type: 'STOCKS_UPDATE', stocks: getAllStocks(), timestamp: new Date().toISOString() });
+    } catch (error) {
+      // An unhandled rejection here would terminate the process on boot.
+      console.error('❌ Startup watchlist cleanup failed:', error.message);
+    }
+  }, 8000);
+
+  // Schedule auto discovery + prune daily at 9:05 AM India Time
   cron.schedule('0 9 * * *', () => {
     console.log('⏰ Running scheduled daily IPO discovery...');
     runAutoIpoDiscovery();
+  }, { timezone: "Asia/Kolkata" });
+
+  cron.schedule('5 9 * * *', async () => {
+    console.log('✂️  Running scheduled daily watchlist prune...');
+    try {
+      await repairListingDates();
+      const pruned = pruneWatchlist();
+      if (pruned.length > 0) {
+        console.log(`🗑️  Pruned ${pruned.length} stock(s):`);
+        pruned.forEach(p => console.log(`   - ${p.symbol}: ${p.reason}`));
+      }
+      broadcast({ type: 'STOCKS_UPDATE', stocks: getAllStocks(), timestamp: new Date().toISOString() });
+    } catch (error) {
+      // Rejecting here would be an unhandled rejection, which is fatal in Node.
+      console.error('❌ Daily prune failed:', error.message);
+    }
   }, { timezone: "Asia/Kolkata" });
 });
 

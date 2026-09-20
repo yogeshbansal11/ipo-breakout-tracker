@@ -1,9 +1,6 @@
-import express from 'express';
 import { Router } from 'express';
-import { RECENT_IPOS } from '../data/recentIpos.js';
 import {
   getAllStocks,
-  getStock,
   addStock,
   updateStockPrice,
   removeStock,
@@ -11,23 +8,35 @@ import {
   getAllBreakouts,
   clearBreakouts,
   resetBreakoutForStock,
-  getStats
+  getStats,
+  pruneWatchlist
 } from '../services/dataStore.js';
-import {
-  getLiveQuote,
-  getHistoricalData,
-  getListingDayCandle,
-  searchStock
-} from '../services/yahooFinance.js';
+import { getLiveQuote, getHistoricalData, getListingDayCandle, searchStock, getFirstTradeInfo } from '../services/yahooFinance.js';
+import { validateExistingStocks } from '../services/ipoDiscovery.js';
 
 const router = Router();
 
 // ===== STOCK ROUTES =====
 
 // Get all tracked stocks
+// Query params:
+//   ?all=true         → return every stock regardless of listing age
+//   ?maxAgeDays=N     → only return stocks listed within the last N days (default: 365)
 router.get('/stocks', (req, res) => {
   try {
-    const stocks = getAllStocks();
+    let stocks = getAllStocks();
+
+    if (req.query.all !== 'true') {
+      const maxAgeDays = parseInt(req.query.maxAgeDays, 10) || 365;
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - maxAgeDays);
+
+      stocks = stocks.filter(s => {
+        if (!s.listingDate) return true; // keep if no date info
+        return new Date(s.listingDate) >= cutoffDate;
+      });
+    }
+
     res.json({ success: true, stocks });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -54,9 +63,22 @@ router.post('/stocks', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Symbol and listingDate are required' });
     }
 
-    // Fetch Day 1 candle data
-    const day1Candle = await getListingDayCandle(symbol, listingDate);
-    
+    // Resolve the listing from Yahoo's own metadata rather than the supplied date.
+    // This is the same source the discovery, validation and repair paths use, so a
+    // manually added stock ends up with byte-identical Day 1 figures instead of a
+    // candle picked off a different exchange.
+    let listingInfo = null;
+    try {
+      listingInfo = await getFirstTradeInfo(symbol);
+    } catch {
+      return res.status(503).json({
+        success: false,
+        error: 'Could not reach Yahoo Finance. Please try again.'
+      });
+    }
+
+    const day1Candle = listingInfo?.day1 ?? await getListingDayCandle(symbol, listingDate);
+
     if (!day1Candle) {
       return res.status(404).json({ 
         success: false, 
@@ -70,14 +92,23 @@ router.post('/stocks', async (req, res) => {
     const result = addStock({
       symbol,
       name: name || (liveQuote ? liveQuote.name : symbol),
-      listingDate,
+      listingDate: listingInfo?.firstTradeDate || listingDate,
       day1High: day1Candle.high,
       day1Low: day1Candle.low,
       day1Open: day1Candle.open,
       day1Close: day1Candle.close,
       day1Volume: day1Candle.volume,
+      yahooSymbol: listingInfo?.yahooSymbol ?? null,
       exchange: exchange || 'NSE'
     });
+
+    // Seed the price straight away. The monitor only polls during market hours,
+    // so without this a stock added after close shows a blank price until the
+    // next session — and its breakout would not be evaluated until then either.
+    if (result.success && liveQuote?.price) {
+      const updated = updateStockPrice(result.stock.symbol, liveQuote.price);
+      if (updated) result.stock = updated.stock;
+    }
 
     res.json(result);
   } catch (error) {
@@ -186,67 +217,26 @@ router.delete('/breakouts', (req, res) => {
   }
 });
 
-// ===== LOAD RECENT IPOS =====
+// ===== RETROACTIVE VALIDATION =====
 
-router.post('/load-recent-ipos', async (req, res) => {
+router.post('/stocks/validate', async (req, res) => {
   try {
-    const results = { added: [], skipped: [], failed: [] };
-
-    for (const ipo of RECENT_IPOS) {
-      // Skip if already tracked
-      const existing = getStock(ipo.symbol);
-      if (existing) {
-        results.skipped.push(ipo.symbol);
-        continue;
-      }
-
-      try {
-        // Fetch Day 1 candle
-        const day1Candle = await getListingDayCandle(ipo.symbol, ipo.listingDate);
-        if (!day1Candle) {
-          results.failed.push({ symbol: ipo.symbol, reason: 'No Day 1 data' });
-          continue;
-        }
-
-        // Get current price to check if already broken out
-        const liveQuote = await getLiveQuote(ipo.symbol);
-
-        const addResult = addStock({
-          symbol: ipo.symbol,
-          name: (liveQuote && liveQuote.name) || ipo.name,
-          listingDate: ipo.listingDate,
-          day1High: day1Candle.high,
-          day1Low: day1Candle.low,
-          day1Open: day1Candle.open,
-          day1Close: day1Candle.close,
-          day1Volume: day1Candle.volume,
-          exchange: ipo.exchange
-        });
-
-        if (addResult.success) {
-          results.added.push(ipo.symbol);
-          // Immediately check breakout if we have a live price
-          if (liveQuote && liveQuote.price) {
-            updateStockPrice(ipo.symbol, liveQuote.price);
-          }
-        }
-      } catch (err) {
-        results.failed.push({ symbol: ipo.symbol, reason: err.message });
-      }
-
-      // Small delay to avoid rate limiting
-      await new Promise(r => setTimeout(r, 800));
-    }
-
-    res.json({ success: true, results });
+    const removed = await validateExistingStocks();
+    res.json({ success: true, removed, count: removed.length });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// Get recent IPO list (without loading)
-router.get('/recent-ipos', (req, res) => {
-  res.json({ success: true, ipos: RECENT_IPOS });
+// ===== WATCHLIST PRUNE =====
+
+router.post('/stocks/prune', (req, res) => {
+  try {
+    const pruned = pruneWatchlist();
+    res.json({ success: true, pruned, count: pruned.length });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 // ===== STATS =====

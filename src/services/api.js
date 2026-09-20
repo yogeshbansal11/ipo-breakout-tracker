@@ -31,6 +31,10 @@ export const api = {
   // Stats
   getStats: () => request('/stats'),
   
-  // Recent IPOs
-  loadRecentIpos: () => request('/load-recent-ipos', { method: 'POST' }),
+
+  // Watchlist prune
+  pruneWatchlist: () => request('/stocks/prune', { method: 'POST' }),
+
+  // Retroactive validation — removes old stocks incorrectly added as IPOs
+  validateStocks: () => request('/stocks/validate', { method: 'POST' }),
 };

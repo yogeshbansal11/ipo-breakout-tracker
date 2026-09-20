@@ -1,16 +1,36 @@
 import nodemailer from 'nodemailer';
 
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+/**
+ * Builds the transporter on first use rather than at import time.
+ *
+ * index.js imports this module before it calls dotenv's config(), and ES modules
+ * evaluate imports first — so reading process.env at the top level captured
+ * undefined credentials and every alert failed with 'Missing credentials for
+ * "PLAIN"'. Creating it lazily means the env is always loaded by then.
+ */
+let transporter = null;
+
+function getTransporter() {
+  if (!transporter) {
+    transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+  }
+  return transporter;
+}
 
 export async function sendBreakoutEmail(breakouts) {
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS || process.env.EMAIL_USER === 'your_gmail@gmail.com') {
     console.warn('⚠️  Email not configured — skipping email alert. Set EMAIL_USER and EMAIL_PASS in .env');
+    return;
+  }
+
+  if (!process.env.ALERT_EMAIL) {
+    console.warn('⚠️  ALERT_EMAIL not set — skipping email alert. Nothing to send the breakout to.');
     return;
   }
 
@@ -50,7 +70,7 @@ export async function sendBreakoutEmail(breakouts) {
     ? `🚀 Breakout: ${breakouts[0].symbol} crossed Day 1 High (+${breakouts[0].percentAbove}%)`
     : `🚀 ${breakouts.length} Breakouts Detected`;
 
-  await transporter.sendMail({
+  await getTransporter().sendMail({
     from: `"IPO Breakout Tracker" <${process.env.EMAIL_USER}>`,
     to: process.env.ALERT_EMAIL,
     subject,
