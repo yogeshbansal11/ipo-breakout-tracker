@@ -62,7 +62,11 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add server/data
-          git commit -m "chore: price update [skip ci]"
+          # [skip ci] stops this commit retriggering the workflow.
+          # [skip render] stops the dashboard host redeploying: it watches this
+          # branch, and without it every price commit would restart the site
+          # mid-session. Code pushes still deploy normally.
+          git commit -m "chore: price update [skip ci] [skip render]"
           # Another scheduled run may have pushed since checkout.
           git pull --rebase --autostash origin main
           git push
