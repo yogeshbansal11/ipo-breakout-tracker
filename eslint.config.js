@@ -33,7 +33,7 @@ export default defineConfig([
   // Server code runs on Node. Linting it with browser globals reported every
   // `process` reference as undefined, which buried real findings under noise.
   {
-    files: ['server/**/*.js', '*.config.js'],
+    files: ['server/**/*.js', 'scripts/**/*.mjs', '*.config.js'],
     extends: [js.configs.recommended],
     languageOptions: {
       ecmaVersion: 'latest',

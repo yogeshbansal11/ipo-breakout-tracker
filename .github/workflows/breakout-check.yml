@@ -1,0 +1,58 @@
+name: Breakout check
+
+# Times are UTC. IST is UTC+5:30, so the 09:15-15:30 IST session is 03:45-10:00
+# UTC. The window below is deliberately wider than the session: GitHub delays
+# scheduled runs under load, and the script re-checks the real market hours
+# itself and exits immediately when the exchange is shut.
+on:
+  schedule:
+    - cron: '*/10 3-10 * * 1-5'
+  workflow_dispatch:      # lets you run it by hand from the Actions tab
+    inputs:
+      force:
+        description: 'Check even when the market is closed'
+        type: boolean
+        default: false
+
+# Runs write the watchlist back to the repo, so never let two overlap.
+concurrency:
+  group: ipo-data
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      # The job only needs runtime deps — vite and eslint are not involved.
+      - run: npm ci --omit=dev
+
+      - name: Check for breakouts
+        env:
+          EMAIL_USER: ${{ secrets.EMAIL_USER }}
+          EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
+          ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
+        run: node scripts/run-job.mjs check ${{ inputs.force && '--force' || '' }}
+
+      - name: Save updated prices
+        run: |
+          if [ -z "$(git status --porcelain server/data)" ]; then
+            echo "No data changes to commit."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add server/data
+          git commit -m "chore: price update [skip ci]"
+          # Another scheduled run may have pushed since checkout.
+          git pull --rebase --autostash origin main
+          git push

@@ -11,6 +11,7 @@ import { getBulkQuotes } from './services/yahooFinance.js';
 import cron from 'node-cron';
 import { runAutoIpoDiscovery, validateExistingStocks, repairListingDates } from './services/ipoDiscovery.js';
 import { sendBreakoutEmail } from './services/emailService.js';
+import { isMarketOpen } from './services/marketHours.js';
 import { config } from 'dotenv';
 config();
 
@@ -91,33 +92,6 @@ function broadcast(message) {
 }
 
 // ===== PRICE MONITORING ENGINE =====
-
-/**
- * NSE/BSE trade Mon-Fri, 09:15-15:30 IST. Outside that window prices cannot
- * move, so polling every 10s burns roughly 8,600 pointless Yahoo requests a day
- * and risks being rate-limited exactly when the market reopens. Exchange
- * holidays are not modelled — the weekday and time window removes the bulk of
- * the waste, and a holiday just costs a day of no-op quotes.
- *
- * Read in Asia/Kolkata explicitly: the deploy target runs on UTC.
- */
-function isMarketOpen(now = new Date()) {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Asia/Kolkata',
-    weekday: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).formatToParts(now);
-
-  const get = type => parts.find(p => p.type === type)?.value;
-  const weekday = get('weekday');
-  if (weekday === 'Sat' || weekday === 'Sun') return false;
-
-  // hour12:false can render midnight as "24" depending on the ICU build.
-  const minutes = (Number(get('hour')) % 24) * 60 + Number(get('minute'));
-  return minutes >= 9 * 60 + 15 && minutes <= 15 * 60 + 30;
-}
 
 let monitoringInterval = null;
 let isMonitoring = false;
