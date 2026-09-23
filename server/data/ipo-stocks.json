@@ -30,15 +30,16 @@
       "day1Open": 330,
       "day1Close": 345.15,
       "day1Volume": 8510549,
-      "currentPrice": 331,
-      "breakoutTriggered": false,
-      "breakoutTimestamp": null,
-      "breakoutPrice": null,
+      "currentPrice": 371.15,
+      "breakoutTriggered": true,
+      "breakoutTimestamp": "2026-09-23T08:17:47.111Z",
+      "breakoutPrice": 371.15,
       "isMonitoring": true,
       "addedAt": "2026-09-20T14:23:37.058Z",
       "exchange": "NSE",
       "yahooSymbol": "MPIMANIPAL.NS",
-      "lastPriceUpdate": "2026-09-22T08:15:34.895Z"
+      "lastPriceUpdate": "2026-09-23T08:17:47.111Z",
+      "breakoutAttempts": 1
     }
   ],
   "breakouts": [
@@ -50,7 +51,17 @@
       "breakoutPrice": 355.55,
       "breakoutTimestamp": "2026-09-20T16:30:37.088Z",
       "percentAbove": "1.01"
+    },
+    {
+      "id": "mudtyo9zh134w",
+      "symbol": "MPIMANIPAL",
+      "name": "MANIPAL PAYMENT & IDE S L",
+      "day1High": 350.5,
+      "breakoutPrice": 371.15,
+      "breakoutTimestamp": "2026-09-23T08:17:47.111Z",
+      "percentAbove": "5.89",
+      "attempt": 1
     }
   ],
-  "lastUpdated": "2026-09-22T08:15:34.895Z"
+  "lastUpdated": "2026-09-23T08:17:47.111Z"
 }
