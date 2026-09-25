@@ -40,6 +40,25 @@
       "yahooSymbol": "MPIMANIPAL.NS",
       "lastPriceUpdate": "2026-09-23T08:17:47.111Z",
       "breakoutAttempts": 1
+    },
+    {
+      "id": "mugqa8n75qnmf",
+      "symbol": "MILKYMIST-BE",
+      "name": "MILKY MIST DAIRY FOOD L",
+      "listingDate": "2026-08-18",
+      "day1High": 181.5,
+      "day1Low": 165,
+      "day1Open": 165,
+      "day1Close": 181.5,
+      "currentPrice": null,
+      "breakoutTriggered": false,
+      "breakoutTimestamp": null,
+      "breakoutPrice": null,
+      "breakoutAttempts": 0,
+      "isMonitoring": true,
+      "addedAt": "2026-09-25T08:58:06.787Z",
+      "exchange": "NSE",
+      "yahooSymbol": "MILKYMIST.NS"
     }
   ],
   "breakouts": [
@@ -63,5 +82,5 @@
       "attempt": 1
     }
   ],
-  "lastUpdated": "2026-09-23T08:17:47.111Z"
+  "lastUpdated": "2026-09-25T08:58:06.787Z"
 }
