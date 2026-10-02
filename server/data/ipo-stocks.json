@@ -60,6 +60,25 @@
       "exchange": "NSE",
       "yahooSymbol": "MILKYMIST.NS",
       "lastPriceUpdate": "2026-09-28T09:23:03.916Z"
+    },
+    {
+      "id": "muqsh0utnw7f7",
+      "symbol": "RTSPOWR-BE",
+      "name": "R T S POWER CORPN. LTD.",
+      "listingDate": "2026-08-18",
+      "day1High": 113,
+      "day1Low": 96,
+      "day1Open": 105,
+      "day1Close": 96.72,
+      "currentPrice": null,
+      "breakoutTriggered": false,
+      "breakoutTimestamp": null,
+      "breakoutPrice": null,
+      "breakoutAttempts": 0,
+      "isMonitoring": true,
+      "addedAt": "2026-10-02T09:57:04.277Z",
+      "exchange": "NSE",
+      "yahooSymbol": "RTSPOWR.NS"
     }
   ],
   "breakouts": [
@@ -93,5 +112,5 @@
       "attempt": 1
     }
   ],
-  "lastUpdated": "2026-09-28T09:23:03.916Z"
+  "lastUpdated": "2026-10-02T09:57:04.277Z"
 }
