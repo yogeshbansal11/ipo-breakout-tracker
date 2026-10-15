@@ -40,6 +40,25 @@
       "yahooSymbol": "MPIMANIPAL.NS",
       "lastPriceUpdate": "2026-09-23T08:17:47.111Z",
       "breakoutAttempts": 1
+    },
+    {
+      "id": "mv9a10wyt0l9i",
+      "symbol": "GSPLTRANS",
+      "name": "GSPL TRANSMISSION LIMITED",
+      "listingDate": "2026-09-30",
+      "day1High": 159.6,
+      "day1Low": 144.4,
+      "day1Open": 152,
+      "day1Close": 144.4,
+      "currentPrice": null,
+      "breakoutTriggered": false,
+      "breakoutTimestamp": null,
+      "breakoutPrice": null,
+      "breakoutAttempts": 0,
+      "isMonitoring": true,
+      "addedAt": "2026-10-15T08:28:22.114Z",
+      "exchange": "NSE",
+      "yahooSymbol": "GSPLTRANS.NS"
     }
   ],
   "breakouts": [
@@ -63,5 +82,5 @@
       "attempt": 1
     }
   ],
-  "lastUpdated": "2026-10-05T10:41:42.724Z"
+  "lastUpdated": "2026-10-15T08:28:22.114Z"
 }
