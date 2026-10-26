@@ -50,7 +50,7 @@
       "day1Low": 144.4,
       "day1Open": 152,
       "day1Close": 144.4,
-      "currentPrice": 113.22,
+      "currentPrice": 114.86,
       "breakoutTriggered": false,
       "breakoutTimestamp": null,
       "breakoutPrice": null,
@@ -59,7 +59,7 @@
       "addedAt": "2026-10-15T08:28:22.114Z",
       "exchange": "NSE",
       "yahooSymbol": "GSPLTRANS.NS",
-      "lastPriceUpdate": "2026-10-23T08:15:30.605Z"
+      "lastPriceUpdate": "2026-10-26T08:32:42.807Z"
     }
   ],
   "breakouts": [
@@ -83,5 +83,5 @@
       "attempt": 1
     }
   ],
-  "lastUpdated": "2026-10-23T08:15:30.605Z"
+  "lastUpdated": "2026-10-26T08:32:42.807Z"
 }
