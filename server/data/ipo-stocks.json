@@ -50,7 +50,7 @@
       "day1Low": 144.4,
       "day1Open": 152,
       "day1Close": 144.4,
-      "currentPrice": 114.86,
+      "currentPrice": 117.79,
       "breakoutTriggered": false,
       "breakoutTimestamp": null,
       "breakoutPrice": null,
@@ -59,7 +59,7 @@
       "addedAt": "2026-10-15T08:28:22.114Z",
       "exchange": "NSE",
       "yahooSymbol": "GSPLTRANS.NS",
-      "lastPriceUpdate": "2026-10-26T08:32:42.807Z"
+      "lastPriceUpdate": "2026-10-27T08:39:44.872Z"
     },
     {
       "id": "mvp1es4m80fc7",
@@ -70,15 +70,16 @@
       "day1Low": 4.35,
       "day1Open": 4.39,
       "day1Close": 4.84,
-      "currentPrice": null,
-      "breakoutTriggered": false,
-      "breakoutTimestamp": null,
-      "breakoutPrice": null,
-      "breakoutAttempts": 0,
+      "currentPrice": 6.07,
+      "breakoutTriggered": true,
+      "breakoutTimestamp": "2026-10-27T08:39:44.872Z",
+      "breakoutPrice": 6.07,
+      "breakoutAttempts": 1,
       "isMonitoring": true,
       "addedAt": "2026-10-26T09:11:26.182Z",
       "exchange": "NSE",
-      "yahooSymbol": "AGOL.NS"
+      "yahooSymbol": "AGOL.NS",
+      "lastPriceUpdate": "2026-10-27T08:39:44.872Z"
     }
   ],
   "breakouts": [
@@ -100,7 +101,17 @@
       "breakoutTimestamp": "2026-09-23T08:17:47.111Z",
       "percentAbove": "5.89",
       "attempt": 1
+    },
+    {
+      "id": "mvqfpvqg1py1z",
+      "symbol": "AGOL-BE",
+      "name": "ASHAPURI GOLD ORNAMENT L",
+      "day1High": 5.23,
+      "breakoutPrice": 6.07,
+      "breakoutTimestamp": "2026-10-27T08:39:44.872Z",
+      "percentAbove": "16.06",
+      "attempt": 1
     }
   ],
-  "lastUpdated": "2026-10-26T09:11:26.182Z"
+  "lastUpdated": "2026-10-27T08:39:44.872Z"
 }
