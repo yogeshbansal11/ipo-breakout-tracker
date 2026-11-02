@@ -1,47 +1,6 @@
 {
   "stocks": [
     {
-      "id": "mu9wpkbn9s0fu",
-      "symbol": "KARAMTARA",
-      "name": "KARAMTARA ENGINEERING L",
-      "listingDate": "2026-09-17",
-      "day1High": 352,
-      "day1Low": 320,
-      "day1Open": 320,
-      "day1Close": 352,
-      "day1Volume": 27433507,
-      "currentPrice": 355.55,
-      "breakoutTriggered": true,
-      "breakoutTimestamp": "2026-09-20T16:30:37.088Z",
-      "breakoutPrice": 355.55,
-      "isMonitoring": true,
-      "addedAt": "2026-09-20T14:23:36.228Z",
-      "exchange": "NSE",
-      "yahooSymbol": "KARAMTARA.NS",
-      "lastPriceUpdate": "2026-09-20T19:03:28.887Z"
-    },
-    {
-      "id": "mu9wpkyqn7psb",
-      "symbol": "MPIMANIPAL",
-      "name": "MANIPAL PAYMENT & IDE S L",
-      "listingDate": "2026-09-17",
-      "day1High": 350.5,
-      "day1Low": 315.65,
-      "day1Open": 330,
-      "day1Close": 345.15,
-      "day1Volume": 8510549,
-      "currentPrice": 371.15,
-      "breakoutTriggered": true,
-      "breakoutTimestamp": "2026-09-23T08:17:47.111Z",
-      "breakoutPrice": 371.15,
-      "isMonitoring": true,
-      "addedAt": "2026-09-20T14:23:37.058Z",
-      "exchange": "NSE",
-      "yahooSymbol": "MPIMANIPAL.NS",
-      "lastPriceUpdate": "2026-09-23T08:17:47.111Z",
-      "breakoutAttempts": 1
-    },
-    {
       "id": "mv9a10wyt0l9i",
       "symbol": "GSPLTRANS",
       "name": "GSPL TRANSMISSION LIMITED",
@@ -84,25 +43,6 @@
   ],
   "breakouts": [
     {
-      "id": "mua18wm82izu8",
-      "symbol": "KARAMTARA",
-      "name": "KARAMTARA ENGINEERING L",
-      "day1High": 352,
-      "breakoutPrice": 355.55,
-      "breakoutTimestamp": "2026-09-20T16:30:37.088Z",
-      "percentAbove": "1.01"
-    },
-    {
-      "id": "mudtyo9zh134w",
-      "symbol": "MPIMANIPAL",
-      "name": "MANIPAL PAYMENT & IDE S L",
-      "day1High": 350.5,
-      "breakoutPrice": 371.15,
-      "breakoutTimestamp": "2026-09-23T08:17:47.111Z",
-      "percentAbove": "5.89",
-      "attempt": 1
-    },
-    {
       "id": "mvqfpvqg1py1z",
       "symbol": "AGOL-BE",
       "name": "ASHAPURI GOLD ORNAMENT L",
@@ -113,5 +53,5 @@
       "attempt": 1
     }
   ],
-  "lastUpdated": "2026-10-30T09:37:54.885Z"
+  "lastUpdated": "2026-11-02T11:29:30.275Z"
 }
