@@ -1,26 +1,6 @@
 {
   "stocks": [
     {
-      "id": "mv9a10wyt0l9i",
-      "symbol": "GSPLTRANS",
-      "name": "GSPL TRANSMISSION LIMITED",
-      "listingDate": "2026-09-30",
-      "day1High": 159.6,
-      "day1Low": 144.4,
-      "day1Open": 152,
-      "day1Close": 144.4,
-      "currentPrice": 114,
-      "breakoutTriggered": false,
-      "breakoutTimestamp": null,
-      "breakoutPrice": null,
-      "breakoutAttempts": 0,
-      "isMonitoring": true,
-      "addedAt": "2026-10-15T08:28:22.114Z",
-      "exchange": "NSE",
-      "yahooSymbol": "GSPLTRANS.NS",
-      "lastPriceUpdate": "2026-10-30T09:37:54.885Z"
-    },
-    {
       "id": "mvp1es4m80fc7",
       "symbol": "AGOL-BE",
       "name": "ASHAPURI GOLD ORNAMENT L",
@@ -53,5 +33,5 @@
       "attempt": 1
     }
   ],
-  "lastUpdated": "2026-11-02T11:29:30.275Z"
+  "lastUpdated": "2026-11-16T11:49:51.197Z"
 }
